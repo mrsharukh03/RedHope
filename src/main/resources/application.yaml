@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: RedHope
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE}
+  server:
+    address: ${SPRING_SERVER_ADDRESS}
+    port: ${SPRING_SERVER_PORT}
+
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+    database-platform: ${SPRING_JPA_DATABASE_PLATFORM}
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    senderMail: ${MAIL_USERNAME}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+jwt:
+  secret-key: ${JWT_SECRET}
+  refresh-token-expiration: 604800000    # 7 days
+  token-expiration: 86400000             # 1 day
+app:
+  url: http://localhost:8080
+
+file:
+  upload-dir: C:\Users\LENOVO\Downloads\Spring_Projects
+
