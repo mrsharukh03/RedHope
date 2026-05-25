@@ -2,9 +2,13 @@ package com.RedHope.Controller;
 
 import com.RedHope.DTOs.NotificationDTO;
 import com.RedHope.Service.NotificationService;
+import com.RedHope.Service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -18,11 +22,9 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final UserService userService;
 
-    /**
-     * GET /api/v1/notifications
-     * User ki saari notifications (read aur unread dono) fetch karne ke liye.
-     */
+
     @GetMapping
     public ResponseEntity<List<NotificationDTO>> getAllNotifications(Principal principal) {
         log.info("Fetching all notifications for user: {}", principal.getName());
@@ -30,10 +32,7 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-    /**
-     * GET /api/v1/notifications/unread
-     * Sirf unread notifications fetch karne ke liye (Frontend par red dot/badge dikhane ke kaam aayega).
-     */
+
     @GetMapping("/unread")
     public ResponseEntity<List<NotificationDTO>> getUnreadNotifications(Principal principal) {
         log.info("Fetching unread notifications for user: {}", principal.getName());
@@ -41,7 +40,7 @@ public class NotificationController {
         return ResponseEntity.ok(unreadNotifications);
     }
 
-    @PatchMapping("/{notificationId}/read")
+    @PostMapping("/{notificationId}/read")
     public ResponseEntity<String> markNotificationAsRead(
             @PathVariable UUID notificationId,
             Principal principal) {
@@ -50,4 +49,12 @@ public class NotificationController {
         String response = notificationService.markAsRead(notificationId, principal.getName());
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/role")
+    private ResponseEntity<?> getRole(@AuthenticationPrincipal UserDetails userDetails) {
+        String response = userService.getUserRole(userDetails.getUsername());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+
 }

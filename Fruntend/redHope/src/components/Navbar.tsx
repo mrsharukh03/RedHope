@@ -3,13 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { notificationAPI } from '../services/api';
-import {
-  Heart, Menu, X, User as UserIcon, LogOut, LayoutDashboard, Settings,
-  Bell, Sun, Moon
-} from 'lucide-react';
+import { ShieldCheck, Heart, Menu, X, User as UserIcon, LogOut, LayoutDashboard, Settings, Bell, Sun, Moon } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, isAdmin } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -102,8 +99,22 @@ export const Navbar: React.FC = () => {
 
             {isAuthenticated ? (
               <>
-                <Link to="/dashboard" className={navLinkClass('/dashboard')}>Dashboard</Link>
-                <Link to="/profile" className={navLinkClass('/profile')}>My Profile</Link>
+                {/* USER tabs: Dashboard + My Profile */}
+                {!isAdmin && (
+                  <>
+                    <Link to="/dashboard" className={navLinkClass('/dashboard')}>Dashboard</Link>
+                    <Link to="/profile" className={navLinkClass('/profile')}>My Profile</Link>
+                  </>
+                )}
+
+                {/* ADMIN tab */}
+                {isAdmin && (
+                  <Link to="/admin" className={`text-sm font-bold transition-all duration-200 hover:text-amber-400 flex items-center gap-1.5 ${
+                    isActive('/admin') ? 'text-amber-400' : 'text-neutral-300'
+                  }`}>
+                    <ShieldCheck className="w-4 h-4" /> Admin
+                  </Link>
+                )}
 
                 <div className="flex items-center gap-2 pl-4 border-l border-neutral-800">
                   <ThemeToggle />
@@ -121,7 +132,9 @@ export const Navbar: React.FC = () => {
                     )}
                     <div className="flex flex-col text-left">
                       <span className="text-xs font-semibold text-neutral-200 line-clamp-1 max-w-[120px]">{user?.name}</span>
-                      <span className="text-[10px] text-neutral-400">{user?.profile?.bloodGroup || 'Not set'}</span>
+                      <span className="text-[10px] text-neutral-400">
+                        {isAdmin ? '🛡️ Admin' : (user?.profile?.bloodGroup || 'Not set')}
+                      </span>
                     </div>
                   </div>
 
@@ -169,14 +182,29 @@ export const Navbar: React.FC = () => {
 
             {isAuthenticated ? (
               <>
-                <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}
-                  className={`block px-3 py-3 rounded-lg text-base font-semibold ${isActive('/dashboard') ? 'bg-blood-950/30 text-blood-500 border-l-4 border-blood-500' : 'text-neutral-300 hover:bg-neutral-900'}`}>
-                  <div className="flex items-center gap-2"><LayoutDashboard className="w-5 h-5" /> Dashboard</div>
-                </Link>
-                <Link to="/profile" onClick={() => setIsMenuOpen(false)}
-                  className={`block px-3 py-3 rounded-lg text-base font-semibold ${isActive('/profile') ? 'bg-blood-950/30 text-blood-500 border-l-4 border-blood-500' : 'text-neutral-300 hover:bg-neutral-900'}`}>
-                  <div className="flex items-center gap-2"><Settings className="w-5 h-5" /> My Profile</div>
-                </Link>
+                {/* USER-only mobile links */}
+                {!isAdmin && (
+                  <>
+                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}
+                      className={`block px-3 py-3 rounded-lg text-base font-semibold ${isActive('/dashboard') ? 'bg-blood-950/30 text-blood-500 border-l-4 border-blood-500' : 'text-neutral-300 hover:bg-neutral-900'}`}>
+                      <div className="flex items-center gap-2"><LayoutDashboard className="w-5 h-5" /> Dashboard</div>
+                    </Link>
+                    <Link to="/profile" onClick={() => setIsMenuOpen(false)}
+                      className={`block px-3 py-3 rounded-lg text-base font-semibold ${isActive('/profile') ? 'bg-blood-950/30 text-blood-500 border-l-4 border-blood-500' : 'text-neutral-300 hover:bg-neutral-900'}`}>
+                      <div className="flex items-center gap-2"><Settings className="w-5 h-5" /> My Profile</div>
+                    </Link>
+                  </>
+                )}
+
+                {/* ADMIN-only mobile link */}
+                {isAdmin && (
+                  <Link to="/admin" onClick={() => setIsMenuOpen(false)}
+                    className={`block px-3 py-3 rounded-lg text-base font-semibold ${isActive('/admin') ? 'bg-amber-950/30 text-amber-400 border-l-4 border-amber-500' : 'text-neutral-300 hover:bg-neutral-900'}`}>
+                    <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-amber-400" /> Admin Panel</div>
+                  </Link>
+                )}
+
+                {/* Notifications — both USER and ADMIN */}
                 <Link to="/notifications" onClick={() => setIsMenuOpen(false)}
                   className={`block px-3 py-3 rounded-lg text-base font-semibold ${isActive('/notifications') ? 'bg-blood-950/30 text-blood-500 border-l-4 border-blood-500' : 'text-neutral-300 hover:bg-neutral-900'}`}>
                   <div className="flex items-center gap-2 justify-between">

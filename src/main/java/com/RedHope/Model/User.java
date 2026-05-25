@@ -29,9 +29,9 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
-    private List<Role> role;
+    @Column(nullable = false)
+    private Role role;
 
     private boolean isActive = true;
     private boolean isVerified = false; //

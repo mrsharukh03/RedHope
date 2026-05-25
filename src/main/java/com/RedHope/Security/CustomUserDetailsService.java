@@ -30,11 +30,9 @@ public class CustomUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("User not found");
         }
 
-        List<String> roles = user.getRole().stream()
-                .map(Enum::name)
-                .collect(Collectors.toList());
+        String role = user.getRole().toString();
 
-        return new CustomUserDetails(user.getEmail(), user.getPassword(), roles);
+        return new CustomUserDetails(user.getEmail(), user.getPassword(), role);
     }
 
 }

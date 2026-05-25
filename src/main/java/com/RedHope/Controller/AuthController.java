@@ -24,12 +24,6 @@ public class AuthController {
     public AuthController(UserService userService) {
         this.userService = userService;
     }
-    @Tag(name = "Testing ")
-    @GetMapping("/hi")
-    public String test(){
-        return "Welcome";
-    }
-
 
         @PostMapping("/signup")
         public ResponseEntity<?> signup(@Valid @RequestBody SignupDTO signupRequest) {
@@ -61,7 +55,7 @@ public class AuthController {
                 response.addHeader("Set-Cookie", accessCookie.toString());
                 response.addHeader("Set-Cookie", refreshCookie.toString());
 
-                return ResponseEntity.ok("Login successful");
+                return ResponseEntity.ok(authResponse.getRole().toUpperCase());
 
             } catch (Exception e) {
                 return ResponseEntity

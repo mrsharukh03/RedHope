@@ -23,11 +23,13 @@ export const Login: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await login({ email, password });
-      // Redirect to dashboard (if the user has completed profile, go to dashboard, else profile)
-      // Note: AuthContext login automatically syncs state, and App routing handles the guards.
-      // Let's redirect directly to dashboard or profile
-      navigate('/dashboard');
+      const role = await login({ email, password });
+      // Redirect based on actual role fetched from backend
+      if (role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       console.error(err);
       // Toast message is handled by the AuthContext provider

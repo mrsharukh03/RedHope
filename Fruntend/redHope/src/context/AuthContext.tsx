@@ -3,17 +3,22 @@ import { authAPI, userAPI } from '../services/api';
 import type { LoginDTO, SignupDTO, UserProfileUpdateDTO, UserProfileResponseDTO } from '../types';
 import { useToast } from '../components/Toast';
 
+/* ─── Types ─── */
+export type UserRole = 'USER' | 'ADMIN';
+
 interface User {
   name: string;
   email: string;
+  role: UserRole;           // Real role fetched from GET /api/v1/notifications/role
   profile: UserProfileResponseDTO | null;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;         // true when role === 'ADMIN'
   isLoading: boolean;
-  login: (credentials: LoginDTO) => Promise<void>;
+  login: (credentials: LoginDTO) => Promise<UserRole>;   // returns role so caller can redirect
   signup: (details: SignupDTO) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (profileData: UserProfileUpdateDTO) => Promise<void>;
@@ -22,38 +27,57 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/* ─── Helper: fetch role from backend, fall back gracefully ─── */
+async function fetchRoleFromBackend(): Promise<UserRole> {
+  try {
+    const roleStr = await authAPI.getRole();           // returns "ADMIN" or "USER"
+    const clean = (roleStr || '').trim().toUpperCase();
+    return clean === 'ADMIN' ? 'ADMIN' : 'USER';
+  } catch {
+    // If the role API fails, fall back to what's cached in localStorage
+    const cached = localStorage.getItem('redhope_user_role');
+    return cached === 'ADMIN' ? 'ADMIN' : 'USER';
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { showToast } = useToast();
 
-  // Check login status on load
+  /* ── Refresh full session (called on app mount + after login) ── */
   const refreshUserStatus = useCallback(async () => {
     try {
-      const response = await authAPI.checkLoginStatus();
-      if (response === 'Authenticated') {
-        const cachedEmail = localStorage.getItem('redhope_user_email') || '';
-        
-        let profileData: UserProfileResponseDTO | null = null;
-        try {
-          profileData = await userAPI.getUserProfile();
-        } catch (e) {
-          console.error('Failed to fetch user profile from API:', e);
-        }
+      const statusResponse = await authAPI.checkLoginStatus();
+
+      if (statusResponse === 'Authenticated') {
+        // Fetch role and profile in parallel
+        const [role, profileData] = await Promise.allSettled([
+          fetchRoleFromBackend(),
+          userAPI.getUserProfile(),
+        ]);
+
+        const resolvedRole: UserRole =
+          role.status === 'fulfilled' ? role.value : 'USER';
+        const resolvedProfile: UserProfileResponseDTO | null =
+          profileData.status === 'fulfilled' ? profileData.value : null;
+
+        // Persist role to localStorage for offline/fallback reads
+        localStorage.setItem('redhope_user_role', resolvedRole);
 
         setUser({
-          name: profileData?.name || localStorage.getItem('redhope_user_name') || 'RedHope User',
-          email: cachedEmail,
-          profile: profileData,
+          name: resolvedProfile?.name || localStorage.getItem('redhope_user_name') || 'RedHope User',
+          email: localStorage.getItem('redhope_user_email') || '',
+          role: resolvedRole,
+          profile: resolvedProfile,
         });
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
         setUser(null);
       }
-    } catch (error) {
-      console.error('Failed to verify session status:', error);
+    } catch {
       setIsAuthenticated(false);
       setUser(null);
     } finally {
@@ -61,26 +85,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  useEffect(() => {
-    refreshUserStatus();
-  }, [refreshUserStatus]);
+  useEffect(() => { refreshUserStatus(); }, [refreshUserStatus]);
 
-  const login = async (credentials: LoginDTO) => {
+  /* ── Login ── */
+  const login = async (credentials: LoginDTO): Promise<UserRole> => {
     setIsLoading(true);
     try {
       await authAPI.login(credentials);
-      
-      // Save email and tentative display name to localStorage
+
+      // Save email
       localStorage.setItem('redhope_user_email', credentials.email);
-      const username = credentials.email.split('@')[0];
-      const displayName = username.charAt(0).toUpperCase() + username.slice(1);
-      
+      const displayName = credentials.email.split('@')[0];
       if (!localStorage.getItem('redhope_user_name')) {
-        localStorage.setItem('redhope_user_name', displayName);
+        localStorage.setItem('redhope_user_name', displayName.charAt(0).toUpperCase() + displayName.slice(1));
       }
 
-      await refreshUserStatus();
-      showToast('Welcome back to RedHope!', 'success');
+      // Fetch role + profile after login
+      const [role, profileData] = await Promise.allSettled([
+        fetchRoleFromBackend(),
+        userAPI.getUserProfile(),
+      ]);
+
+      const resolvedRole: UserRole = role.status === 'fulfilled' ? role.value : 'USER';
+      const resolvedProfile: UserProfileResponseDTO | null =
+        profileData.status === 'fulfilled' ? profileData.value : null;
+
+      localStorage.setItem('redhope_user_role', resolvedRole);
+
+      setUser({
+        name: resolvedProfile?.name || localStorage.getItem('redhope_user_name') || 'RedHope User',
+        email: credentials.email,
+        role: resolvedRole,
+        profile: resolvedProfile,
+      });
+      setIsAuthenticated(true);
+
+      showToast(
+        resolvedRole === 'ADMIN'
+          ? '👋 Welcome Admin! Redirecting to Admin Panel...'
+          : 'Welcome back to RedHope!',
+        'success'
+      );
+
+      return resolvedRole;   // caller uses this to navigate
     } catch (error: any) {
       showToast(error.message || 'Login failed. Please check credentials.', 'error');
       throw error;
@@ -89,11 +136,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /* ── Signup ── */
   const signup = async (details: SignupDTO) => {
     setIsLoading(true);
     try {
       const res = await authAPI.signup(details);
-      // Cache details to use after email verification and login
       localStorage.setItem('redhope_user_name', details.name);
       localStorage.setItem('redhope_user_email', details.email);
       showToast(res.message || 'Sign up successful! Please verify your email.', 'success');
@@ -105,16 +152,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /* ── Logout ── */
   const logout = async () => {
     setIsLoading(true);
-    try {
-      await authAPI.logout();
-    } catch (error) {
-      console.warn('Network logout failed, clearing local session.');
-    } finally {
+    try { await authAPI.logout(); } catch { /* ignore */ }
+    finally {
       localStorage.removeItem('redhope_user_name');
       localStorage.removeItem('redhope_user_email');
       localStorage.removeItem('redhope_user_profile');
+      localStorage.removeItem('redhope_user_role');
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
@@ -122,14 +168,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /* ── Update Profile ── */
   const updateProfile = async (profileData: UserProfileUpdateDTO) => {
     setIsLoading(true);
     try {
       await userAPI.updateProfile(profileData);
-      
-      // Refresh profile data from backend
       await refreshUserStatus();
-      
       showToast('Profile updated successfully!', 'success');
     } catch (error: any) {
       showToast(error.message || 'Failed to update profile.', 'error');
@@ -139,28 +183,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isAdmin = user?.role === 'ADMIN';
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        isLoading,
-        login,
-        signup,
-        logout,
-        updateProfile,
-        refreshUserStatus,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, isAuthenticated, isAdmin, isLoading,
+      login, signup, logout, updateProfile, refreshUserStatus,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 };

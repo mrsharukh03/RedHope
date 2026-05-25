@@ -28,15 +28,10 @@ public class JWTUtils {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public List<String> extractRole(String token){
+    public String extractRole(String token){
         Claims claims = extractAllClaims(token);
-        Object roles = claims.get("role");
-        if (roles instanceof List<?>) {
-            return ((List<?>) roles).stream()
-                    .map(Object::toString)
-                    .collect(Collectors.toList());
-        }
-        return Collections.emptyList();
+        Object role = claims.get("role");
+        return role != null ? role.toString() : null;
     }
 
 
@@ -67,12 +62,12 @@ public class JWTUtils {
         return expiration != null && expiration.before(new Date());
     }
 
-    public String generateToken(String email, List<Role> role) {
+    public String generateToken(String email, Role role) {
         Map<String,Object> claims = new HashMap<>();
         claims.put("role",role);
         return createToken(email,claims);
     }
-    public String generateRefreshToken(String email,List<Role> role) {
+    public String generateRefreshToken(String email,Role role) {
         Map<String,Object> claims = new HashMap<>();
         claims.put("role",role);
         return createRefreshToken(email,claims);

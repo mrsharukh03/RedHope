@@ -81,7 +81,10 @@ export const authAPI = {
   refreshAccessToken: () => request<string>('/api/v1/auth/refresh', 'POST'),
   directLogin: (data: TokenDTO) => request<string>('/api/v1/auth/direct-login', 'POST', data),
   testHi: () => request<string>('/api/v1/auth/hi', 'GET'),
+  // GET /api/v1/notifications/role — returns "ADMIN" or "USER" for the current session
+  getRole: () => request<string>('/api/v1/notifications/role', 'GET'),
 };
+
 
 export const userAPI = {
   updateProfile: (profile: UserProfileUpdateDTO) => request<{ message: string; profile: any }>('/api/v1/user/update/profile', 'POST', profile),
@@ -113,6 +116,6 @@ export const notificationAPI = {
   getAll: () => request<any[]>('/api/v1/notifications', 'GET'),
   // GET /api/v1/notifications/unread — only unread notifications
   getUnread: () => request<any[]>('/api/v1/notifications/unread', 'GET'),
-  // PATCH /api/v1/notifications/{notificationId}/read — mark one as read
-  markAsRead: (notificationId: string) => request<string>(`/api/v1/notifications/${notificationId}/read`, 'PATCH'),
+  // POST /api/v1/notifications/{notificationId}/read — mark one as read
+  markAsRead: (notificationId: string) => request<string>(`/api/v1/notifications/${notificationId}/read`, 'POST'),
 };

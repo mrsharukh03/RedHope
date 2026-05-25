@@ -66,9 +66,8 @@ public class UserService {
             user.setVerified(false);
             user.setCreatedTime(LocalDateTime.now());
             user.setUpdateTime(LocalDateTime.now());
-            user.setRole(Collections.singletonList(Role.USER));
+            user.setRole(Role.USER);
             emailVerificationService.sendEmailVerificationLink(user.getEmail());
-            notificationService.sendNotification(user,"Welcome to ReadHope ","Your saving humanity", NotificationType.SYSTEM);
             userRepository.save(user);
             log.info("User registered: {}, verification email sent.", email);
 
@@ -105,7 +104,7 @@ public class UserService {
         String accessToken = jwtUtils.generateToken(user.getEmail(), user.getRole());
         String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getRole());
         notificationService.sendNotification(user,"Login Alert at: "+LocalDateTime.now(),"If your are not please Change password",NotificationType.SYSTEM);
-        return new AuthResponseDTO(accessToken, refreshToken);
+        return new AuthResponseDTO(accessToken, refreshToken,user.getRole().toString());
     }
 
     public ResponseEntity<?> forgetPassword(String email) {
@@ -164,15 +163,13 @@ public class UserService {
             }
 
             // Extract roles from refresh token
-            List<String> rolesAsString = jwtUtils.extractRole(refreshToken);
+            String roleAsString = jwtUtils.extractRole(refreshToken);
 
-            // Convert String roles to your Role enum list
-            List<Role> roles = rolesAsString.stream()
-                    .map(Role::valueOf)
-                    .collect(Collectors.toList());
+            // Convert String to single Role enum
+            Role role = Role.valueOf(roleAsString);
 
             // Generate new access token using email and roles
-            return jwtUtils.generateToken(email, roles);
+            return jwtUtils.generateToken(email, role);
 
         } catch (Exception e) {
             log.error("Failed to generate access token from refresh token: {}", e.getMessage());
@@ -254,7 +251,7 @@ public class UserService {
             String accessToken = jwtUtils.generateToken(user.getEmail(), user.getRole());
             String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getRole());
 
-            return new AuthResponseDTO(accessToken, refreshToken);
+            return new AuthResponseDTO(accessToken, refreshToken,user.getRole().toString());
         }catch(RuntimeException e){
             throw new RuntimeException(e.getMessage());
         }catch (Exception e){
@@ -276,7 +273,7 @@ public class UserService {
             newUser.setActive(true);
             newUser.setCreatedTime(LocalDateTime.now());
             newUser.setUpdateTime(LocalDateTime.now());
-            newUser.setRole(Collections.singletonList(Role.USER));
+            newUser.setRole(Role.USER);
 
             // Random encoded password, since login is via Google only
             newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
@@ -286,7 +283,7 @@ public class UserService {
         }
         String accessToken = jwtUtils.generateToken(user.getEmail(), user.getRole());
         String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getRole());
-        return new AuthResponseDTO(accessToken, refreshToken);
+        return new AuthResponseDTO(accessToken, refreshToken,user.getRole().toString());
     }
 
     @Transactional
@@ -295,6 +292,10 @@ public class UserService {
         User user = userRepository.findByEmail(username);
         if (user == null) {
             throw new RuntimeException("User not found");
+        }
+
+        if (user.getRole().equals(Role.ADMIN)) {
+            throw new RuntimeException("You can't change your admin role");
         }
 
         UserProfile profile = user.getProfile();
@@ -333,5 +334,13 @@ public class UserService {
         UserProfileGetDTO dto = modelMapper.map(profile, UserProfileGetDTO.class);
 
         return dto;
+    }
+
+    public String getUserRole(String username) {
+        User user = userRepository.findByEmail(username);
+        if (user == null) {
+            throw new RuntimeException("User not found");
+        }
+        return user.getRole().toString();
     }
 }
